@@ -1,0 +1,46 @@
+name: Daily Job Search
+
+on:
+  schedule:
+    # Runs every day at 05:00 UTC (~10:00 AM Pakistan time).
+    # Edit the line below to change the time — it's a standard cron expression.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}   # lets you click "Run workflow" manually to test
+
+permissions:
+  contents: write   # needed so the workflow can save the updated seen-jobs list
+
+jobs:
+  search-and-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run job search agent
+        working-directory: scripts
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python main.py
+
+      - name: Save updated seen-jobs list
+        run: |
+          git config user.name "job-search-bot"
+          git config user.email "actions@github.com"
+          git add data/seen_jobs.json
+          git diff --staged --quiet || git commit -m "Update seen jobs list [skip ci]"
+          git push
